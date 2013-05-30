@@ -72,21 +72,22 @@
   //
   var Events = Backbone.Events = {
 
-    // 对一个事件绑定回调函数. 传递 "all" 将绑定回调在所有事件时触发
+    // 对一个事件绑定回调函数. 传递 "all" 则将绑定回调在所有事件触发时调用 
     on: function(name, callback, context) {
 
-      // API 检测
+      // API 检测 
       if (!eventsApi(this, 'on', name, [callback, context]) || !callback) return this;
 
       //相当于 this._events = this._events || {} 下面语法更容易用来赋值 如下下句
+      //在绑定时间的对象中 建立事件池 来进行事件管理
       this._events || (this._events = {}); 
 
-      // name 事件的事件池（数组形式） 存放当前对象绑定在name的所有事件
+      // name 事件在事件池中的形式（数组形式） 存放当前对象绑定在name的所有事件
       var events = this._events[name] || (this._events[name] = []);
+      // 将当前需要绑定的事件 push到事件池中的具体事件名称中
       events.push({callback: callback, context: context, ctx: context || this});
       return this;
     },
-
     // 绑定一个只触发一次的事件. 当回调被触发后即便被解绑删除
     once: function(name, callback, context) {
       if (!eventsApi(this, 'once', name, [callback, context]) || !callback) return this;
