@@ -41,6 +41,8 @@ function cid() {
 
 /**
  * util-events.js - 最简化 events 支持
+ * 短而经典的事件池处理方式 应该可以算各个库中最简短的、
+ * 当然功能一般来说已经够用
  */
 
 var events = data.events = {}
@@ -56,7 +58,7 @@ seajs.on = function(name, callback) {
 // 若 `event` and `callback` 均为 undefined 移除所有事件
 // 事件池 {event1:[func1,func2],event2:[func1,func3]}
 seajs.off = function(name, callback) {
-  // Remove *all* events
+  // 移除 *all* events
   if (!(name || callback)) {
     events = data.events = {}
     return seajs
@@ -79,16 +81,15 @@ seajs.off = function(name, callback) {
   return seajs
 }
 
-// Emit event, firing all bound callbacks. Callbacks receive the same
-// arguments as `emit` does, apart from the event name
+// 散发事件, 触发所有绑定的回调. 回调将接收相同的参数, 除事件名称。
 var emit = seajs.emit = function(name, data) {
   var list = events[name], fn
 
   if (list) {
-    // Copy callback lists to prevent modification
+    // 重新复制一份提出来，防止之后对数组的修改影响 events[name]
     list = list.slice()
 
-    // Execute event callbacks
+    // 逐一执行对应事件名中的回调
     while ((fn = list.shift())) {
       fn(data)
     }
@@ -99,7 +100,10 @@ var emit = seajs.emit = function(name, data) {
 
 
 /**
- * util-path.js - The utilities for operating path such as id, uri
+ * util-path.js - 公共路径 如 id uri的
+ * 对于路径这一块 一般的由于前端涉及到路径方面的比较少
+ * 所有对于前端来实现路径的规范 还是需要考虑很多情况
+ * seajs 赶脚用了很少的代码，规范了路径的大量情况 很值得学习参考一下
  */
 
 var DIRNAME_RE = /[^?#]*\//
@@ -107,14 +111,14 @@ var DIRNAME_RE = /[^?#]*\//
 var DOT_RE = /\/\.\//g
 var DOUBLE_DOT_RE = /\/[^/]+\/\.\.\//
 
-// Extract the directory portion of a path
+// 提取路径目录部分
 // dirname("a/b/c.js?t=123#xx/zz") ==> "a/b/"
 // ref: http://jsperf.com/regex-vs-split/2
 function dirname(path) {
   return path.match(DIRNAME_RE)[0]
 }
 
-// Canonicalize a path
+// 规范化路径
 // realpath("http://test.com/a//./b/../c") ==> "http://test.com/a/c"
 function realpath(path) {
   // /a/b/./c/./d ==> /a/b/c/d
@@ -128,14 +132,14 @@ function realpath(path) {
   return path
 }
 
-// Normalize an id
+// 标准化 id
 // normalize("path/to/a") ==> "path/to/a.js"
-// NOTICE: substring is faster than negative slice and RegExp
+// NOTICE: substring 比内置的 slice and RegExp 更快
 function normalize(path) {
   var last = path.length - 1
   var lastC = path.charAt(last)
 
-  // If the uri ends with `#`, just return it without '#'
+  // 如果含有，去除末位的 # 号
   if (lastC === "#") {
     return path.substring(0, last)
   }
@@ -150,11 +154,13 @@ function normalize(path) {
 var PATHS_RE = /^([^/:]+)(\/.+)$/
 var VARS_RE = /{([^{]+)}/g
 
+// 对于有模块id简写的进行规范化
 function parseAlias(id) {
   var alias = data.alias
   return alias && isString(alias[id]) ? alias[id] : id
 }
 
+// 处理简写的相对路径
 function parsePaths(id) {
   var paths = data.paths
   var m
@@ -166,6 +172,7 @@ function parsePaths(id) {
   return id
 }
 
+// 处理变量（未看懂）
 function parseVars(id) {
   var vars = data.vars
 
@@ -178,6 +185,7 @@ function parseVars(id) {
   return id
 }
 
+// 不是很懂这几个方法的作用和必要性
 function parseMap(uri) {
   var map = data.map
   var ret = uri
@@ -206,15 +214,15 @@ function addBase(id, refUri) {
   var ret
   var first = id.charAt(0)
 
-  // Absolute
+  // 绝对
   if (ABSOLUTE_RE.test(id)) {
     ret = id
   }
-  // Relative
+  // 相对
   else if (first === ".") {
     ret = realpath((refUri ? dirname(refUri) : data.cwd) + id)
   }
-  // Root
+  // 根
   else if (first === "/") {
     var m = data.cwd.match(ROOT_DIR_RE)
     ret = m ? m[0] + id.substring(1) : id
@@ -227,6 +235,8 @@ function addBase(id, refUri) {
   return ret
 }
 
+// 将模块传入的 id 转换为 uri
+// 经过一些列处理，将各种不同情况变为同一种格式 文件的uri链接
 function id2Uri(id, refUri) {
   if (!id) return ""
 
@@ -251,11 +261,12 @@ var scripts = doc.getElementsByTagName("script")
 var loaderScript = doc.getElementById("seajsnode") ||
     scripts[scripts.length - 1]
 
-// When `sea.js` is inline, set loaderDir to current working directory
+// 在`sea.js`中, 设置 loaderDir 到当前的目录
 var loaderDir = dirname(getScriptAbsoluteSrc(loaderScript) || cwd)
 
-function getScriptAbsoluteSrc(node) {
-  return node.hasAttribute ? // non-IE6/7
+// 获取node的链接 src 值，额 还从来没遇到过
+function getScriptAbsoluteSrc(node) { 
+  return node.hasAttribute ? // 非 IE6/7
       node.src :
     // see http://msdn.microsoft.com/en-us/library/ms536429(VS.85).aspx
       node.getAttribute("src", 4)
@@ -263,7 +274,7 @@ function getScriptAbsoluteSrc(node) {
 
 
 /**
- * util-request.js - The utilities for requesting script and style files
+ * util-request.js - 请求加载 script and style 文件的公共块
  * ref: tests/research/load-js-css/test.html
  */
 
@@ -277,6 +288,7 @@ var currentlyAddingScript
 var interactiveScript
 
 // `onload` event is not supported in WebKit < 535.23 and Firefox < 9.0
+// 更低版本中的不支持 useragent进行判断版本
 // ref:
 //  - https://bugs.webkit.org/show_activity.cgi?id=38995
 //  - https://bugzilla.mozilla.org/show_bug.cgi?id=185236
@@ -285,6 +297,7 @@ var isOldWebKit = (navigator.userAgent
     .replace(/.*AppleWebKit\/(\d+)\..*/, "$1")) * 1 < 536
 
 
+// 使用 uri 判断js和css文件 来创建节点
 function request(url, callback, charset) {
   var isCSS = IS_CSS_RE.test(url)
   var node = doc.createElement(isCSS ? "link" : "script")
@@ -296,6 +309,7 @@ function request(url, callback, charset) {
     }
   }
 
+  // 先进行 回调绑定
   addOnload(node, callback, isCSS)
 
   if (isCSS) {
@@ -307,9 +321,9 @@ function request(url, callback, charset) {
     node.src = url
   }
 
-  // For some cache cases in IE 6-8, the script executes IMMEDIATELY after
-  // the end of the insert execution, so use `currentlyAddingScript` to
-  // hold current node, for deriving url in `define` call
+  // 处理在 IE 6-8 中的缓存问题, 在插入执行结束后脚本立即执行
+  // 所以使用 `currentlyAddingScript` 来处理当前 node 
+  // 在 `define` 调用中衍生 url
   currentlyAddingScript = node
 
   // ref: #185 & http://dev.jquery.com/ticket/2709
@@ -323,26 +337,29 @@ function request(url, callback, charset) {
 function addOnload(node, callback, isCSS) {
   var missingOnload = isCSS && (isOldWebKit || !("onload" in node))
 
-  // for Old WebKit and Old Firefox
+  // 处理老版本的 Old WebKit and Old Firefox link 无onload情况
   if (missingOnload) {
     setTimeout(function() {
       pollCss(node, callback)
-    }, 1) // Begin after node insertion
+    }, 1) // 无阻塞处理（但为啥子要为1 不都是0么？？？？）
     return
   }
 
+  // 赶脚这边处理的很帅 对于兼容直接放入函数中进行处理
   node.onload = node.onerror = node.onreadystatechange = function() {
+    // READY_STATE_RE = /^(?:loaded|complete|undefined)$/
     if (READY_STATE_RE.test(node.readyState)) {
 
-      // Ensure only run once and handle memory leak in IE
+      // 确保一个node只在state各个各种变化中运行一次 
       node.onload = node.onerror = node.onreadystatechange = null
 
       // Remove the script to reduce memory leak
+      // 不明觉厉的赶脚啊
       if (!isCSS && !data.debug) {
         head.removeChild(node)
       }
 
-      // Dereference the node
+      // 取消引用 防止一些内存循环引用的问题（低版本IE中）
       node = null
 
       callback()
@@ -879,11 +896,11 @@ data.preload = (function() {
   return plugins
 })()
 
-// data.alias - An object containing shorthands of module id
-// data.paths - An object containing path shorthands in module id
-// data.vars - The {xxx} variables in module id
-// data.map - An array containing rules to map module uri
-// data.debug - Debug mode. The default value is false
+// data.alias - 一个包含模块简写id的对象
+// data.paths - 一个包含模块简写id的路径对象
+// data.vars - 在模块中的变量声明
+// data.map - 一个包含模块映射规则uri的数组
+// data.debug - 调试模块. 默认为 false
 
 seajs.config = function(configData) {
 
