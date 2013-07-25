@@ -367,10 +367,12 @@ function addOnload(node, callback, isCSS) {
   }
 }
 
+// 处理对于低版本浏览器中 link 标签无 onload的情况进行处理
 function pollCss(node, callback) {
   var sheet = node.sheet
   var isLoaded
 
+  // 检测的处理 2种还有所不同额
   // for WebKit < 536
   if (isOldWebKit) {
     if (sheet) {
@@ -384,7 +386,7 @@ function pollCss(node, callback) {
         isLoaded = true
       }
     } catch (ex) {
-      // The value of `ex.name` is changed from "NS_ERROR_DOM_SECURITY_ERR"
+      // `ex.name` 从 "NS_ERROR_DOM_SECURITY_ERR"
       // to "SecurityError" since Firefox 13.0. But Firefox is less than 9.0
       // in here, So it is ok to just rely on "NS_ERROR_DOM_SECURITY_ERR"
       if (ex.name === "NS_ERROR_DOM_SECURITY_ERR") {
@@ -393,6 +395,7 @@ function pollCss(node, callback) {
     }
   }
 
+  // 轮训检测
   setTimeout(function() {
     if (isLoaded) {
       // Place callback here to give time for style rendering
@@ -404,15 +407,15 @@ function pollCss(node, callback) {
   }, 20)
 }
 
+// 未了解起作用
 function getCurrentScript() {
   if (currentlyAddingScript) {
     return currentlyAddingScript
   }
 
-  // For IE6-9 browsers, the script onload event may not fire right
-  // after the script is evaluated. Kris Zyp found that it
-  // could query the script nodes and the one that is in "interactive"
-  // mode indicates the current script
+  // 对于 IE6-9 ,  script的onload事件有时不能被正确的计算触发。
+  //  Kris Zyp 可以使用轮询来查询脚本
+  // and the one that is in "interactive" mode indicates the current script
   // ref: http://goo.gl/JHfFW
   if (interactiveScript && interactiveScript.readyState === "interactive") {
     return interactiveScript
@@ -431,7 +434,7 @@ function getCurrentScript() {
 
 
 /**
- * util-deps.js - The parser for dependencies
+ * util-deps.js - 依赖关系的解析 匹配得到代码中 使用repuire的依赖
  * ref: tests/research/parse-dependencies/test.html
  */
 
@@ -453,7 +456,7 @@ function parseDependencies(code) {
 
 
 /**
- * module.js - The core of module loader
+ * module.js -模块的核心加载器
  */
 
 var cachedMods = seajs.cache = {}
@@ -464,17 +467,17 @@ var fetchedList = {}
 var callbackList = {}
 
 var STATUS = Module.STATUS = {
-  // 1 - The `module.uri` is being fetched
+  // 1 - The `module.uri` 已经被获取到的
   FETCHING: 1,
-  // 2 - The meta data has been saved to cachedMods
+  // 2 - The meta data 已被保存至 cachedMods
   SAVED: 2,
-  // 3 - The `module.dependencies` are being loaded
+  // 3 - The `module.dependencies` 已被加载
   LOADING: 3,
-  // 4 - The module are ready to execute
+  // 4 - The module 准备执行
   LOADED: 4,
-  // 5 - The module is being executed
+  // 5 - The module 已执行
   EXECUTING: 5,
-  // 6 - The `module.exports` is available
+  // 6 - The `module.exports` 已存在
   EXECUTED: 6
 }
 
@@ -485,14 +488,14 @@ function Module(uri, deps) {
   this.exports = null
   this.status = 0
 
-  // Who depends on me
+  // 哪些依赖预本model
   this._waitings = {}
 
-  // The number of unloaded dependencies
+  // 为加载的模块数
   this._remain = 0
 }
 
-// Resolve module.dependencies
+// 解决模块依赖
 Module.prototype.resolve = function() {
   var mod = this
   var ids = mod.dependencies
@@ -504,30 +507,31 @@ Module.prototype.resolve = function() {
   return uris
 }
 
-// Load module.dependencies and fire onload when all done
+// 加载模块，当所有的加载完毕后触发 onload
+// 使用技术来判定 是否依赖以及完全加载
 Module.prototype.load = function() {
   var mod = this
 
-  // If the module is being loaded, just wait it onload call
+  // 如果模块已被加载，等待 onload 调用
   if (mod.status >= STATUS.LOADING) {
     return
   }
 
   mod.status = STATUS.LOADING
 
-  // Emit `load` event for plugins such as combo plugin
+  // 发射 `load` event 对插件
   var uris = mod.resolve()
   emit("load", uris)
 
   var len = mod._remain = uris.length
   var m
 
-  // Initialize modules and register waitings
+  // 初始化 模块和寄存器 waitings
   for (var i = 0; i < len; i++) {
     m = Module.get(uris[i])
 
     if (m.status < STATUS.LOADED) {
-      // Maybe duplicate
+      // 考虑重复的情况
       m._waitings[mod.uri] = (m._waitings[mod.uri] || 0) + 1
     }
     else {
@@ -540,7 +544,7 @@ Module.prototype.load = function() {
     return
   }
 
-  // Begin parallel loading
+  // 开始并行加载
   var requestCache = {}
 
   for (i = 0; i < len; i++) {
@@ -554,7 +558,7 @@ Module.prototype.load = function() {
     }
   }
 
-  // Send all requests at last to avoid cache bug in IE6-9. Issues#808
+  // 发送所有的请求，避免在 IE6-9 中缓存的BUG. Issues#808
   for (var requestUri in requestCache) {
     if (requestCache.hasOwnProperty(requestUri)) {
       requestCache[requestUri]()
@@ -562,7 +566,7 @@ Module.prototype.load = function() {
   }
 }
 
-// Call this method when module is loaded
+// 所有的加载完毕后执行的方法
 Module.prototype.onload = function() {
   var mod = this
   mod.status = STATUS.LOADED
@@ -571,7 +575,7 @@ Module.prototype.onload = function() {
     mod.callback()
   }
 
-  // Notify waiting modules to fire onload
+  // 通知等待模块来触发 onload
   var waitings = mod._waitings
   var uri, m
 
@@ -585,12 +589,12 @@ Module.prototype.onload = function() {
     }
   }
 
-  // Reduce memory taken
+  // 减少内存占用
   delete mod._waitings
   delete mod._remain
 }
 
-// Fetch a module
+// 获取模块
 Module.prototype.fetch = function(requestCache) {
   var mod = this
   var uri = mod.uri
@@ -651,7 +655,7 @@ Module.prototype.fetch = function(requestCache) {
   }
 }
 
-// Execute a module
+// 执行模块
 Module.prototype.exec = function () {
   var mod = this
 
@@ -708,7 +712,7 @@ Module.prototype.exec = function () {
   return exports
 }
 
-// Resolve id to uri
+// 将 id 转为 uri
 Module.resolve = function(id, refUri) {
   // Emit `resolve` event for plugins such as text plugin
   var emitData = { id: id, refUri: refUri }
@@ -717,7 +721,7 @@ Module.resolve = function(id, refUri) {
   return emitData.uri || id2Uri(emitData.id, refUri)
 }
 
-// Define a module
+// 定义模块
 Module.define = function (id, deps, factory) {
   var argsLen = arguments.length
 
@@ -772,7 +776,7 @@ Module.define = function (id, deps, factory) {
       anonymousMeta = meta
 }
 
-// Save meta data to cachedMods
+// 保存元数据到 cachedMods
 Module.save = function(uri, meta) {
   var mod = Module.get(uri)
 
@@ -785,12 +789,12 @@ Module.save = function(uri, meta) {
   }
 }
 
-// Get an existed module or create a new one
+// 获取一个已存在的模块 或者 创建一个
 Module.get = function(uri, deps) {
   return cachedMods[uri] || (cachedMods[uri] = new Module(uri, deps))
 }
 
-// Use function is equal to load a anonymous module
+// 使用函数 等同于 一个异步函数加载
 Module.use = function (ids, callback, uri) {
   var mod = Module.get(uri, isArray(ids) ? ids : [ids])
 
@@ -812,7 +816,7 @@ Module.use = function (ids, callback, uri) {
   mod.load()
 }
 
-// Load preload modules before all other modules
+// 在其他模块前  预加载模块
 Module.preload = function(callback) {
   var preloadMods = data.preload
   var len = preloadMods.length
@@ -832,7 +836,7 @@ Module.preload = function(callback) {
 }
 
 
-// Public API
+// 公共的API接口
 
 seajs.use = function(ids, callback) {
   Module.preload(function() {
@@ -858,7 +862,7 @@ seajs.require = function(id) {
 
 
 /**
- * config.js - The configuration for the loader
+ * config.js - 加载配置
  */
 
 var BASE_RE = /^(.+?\/)(\?\?)?(seajs\/)+/
