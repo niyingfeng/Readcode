@@ -559,6 +559,7 @@
             targetElement.fastClickScrollParent = this.targetElement.fastClickScrollParent;
         }
 
+        // 为label标签的时候 findControl 就近查找元素
         targetTagName = targetElement.tagName.toLowerCase();
         if (targetTagName === 'label') {
             forElement = this.findControl(targetElement);
@@ -571,9 +572,11 @@
                 targetElement = forElement;
             }
         } else if (this.needsFocus(targetElement)) {
-
-            // Case 1: If the touch started a while ago (best guess is 100ms based on tests for issue #36) then focus will be triggered anyway. Return early and unset the target element reference so that the subsequent click will be allowed through.
-            // Case 2: Without this exception for input elements tapped when the document is contained in an iframe, then any inputted text won't be visible even though the value attribute is updated as the user types (issue #37).
+            // 需要聚焦后模拟点击的
+            
+            // Case 1 快速双击情况: touch触发在一会会之前 (基于测试 100ms 左右 for issue #36) 出发聚焦.
+            // 尽早返回并且不设置target element的引用 以便后续的点击可被通过.
+            // Case 2: 当document处于一个iframe内部时，所有的输入元素都如此 (issue #37).
             if ((event.timeStamp - trackingClickStart) > 100 || (deviceIsIOS && window.top !== window && targetTagName === 'input')) {
                 this.targetElement = null;
                 return false;
@@ -582,8 +585,7 @@
             this.focus(targetElement);
             this.sendClick(targetElement, event);
 
-            // Select elements need the event to go through on iOS 4, otherwise the selector menu won't open.
-            // Also this breaks opening selects when VoiceOver is active on iOS6, iOS7 (and possibly others)
+            // iOS 4 选择元素直接pass
             if (!deviceIsIOS || targetTagName !== 'select') {
                 this.targetElement = null;
                 event.preventDefault();
@@ -594,15 +596,14 @@
 
         if (deviceIsIOS && !deviceIsIOS4) {
 
-            // Don't send a synthetic click event if the target element is contained within a parent layer that was scrolled
-            // and this tap is being used to stop the scrolling (usually initiated by a fling - issue #42).
+            // 父级为滚动layer的情况(usually initiated by a fling - issue #42).
             scrollParent = targetElement.fastClickScrollParent;
             if (scrollParent && scrollParent.fastClickLastScrollTop !== scrollParent.scrollTop) {
                 return true;
             }
         }
 
-        // Prevent the actual click from going though - unless the target node is marked as requiring
+        // 阻止真实点击通过 - 除非是标记的元素
         // real clicks or if it is in the whitelist in which case only non-programmatic clicks are permitted.
         if (!this.needsClick(targetElement)) {
             event.preventDefault();
